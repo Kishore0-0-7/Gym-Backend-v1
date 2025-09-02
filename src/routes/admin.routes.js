@@ -42,6 +42,9 @@ const {
 // Imports from the folder Middleware for the authentication
 const { authMiddleware } = require("../middleware/auth.middleware");
 
+// Authanticate
+const { checkAuth, handleLogout } = require("../login/validAuth");
+
 // Routes
 const router = express.Router();
 
@@ -64,15 +67,16 @@ router.post(
   validateProgress,
   registerProgress
 );
-router.post("/add-login",  registerLogin);
+router.post("/get-candidate-info", authMiddleware, getCandidateInformation);
+router.post("/add-login",  authMiddleware,registerLogin);
 router.post("/login", validateLogin, returnToken);
+router.post("/logout", handleLogout);
 
 // Routes Get
 router.get("/progress-all", authMiddleware, getAllProgress);
 router.get("/get-progress", authMiddleware, getProgress);
 router.get("/get-name", authMiddleware, getUsernameAndId);
 router.get("/get-user-lists", authMiddleware, getUserList);
-router.get("/get-candidate-info", authMiddleware, getCandidateInformation);
 router.get("/get-expiry-list", authMiddleware, getExpireMembership);
 router.get("/get-dashboard", authMiddleware, getDashboard);
 router.get("/get-dashboard-graph", authMiddleware, getDashboardGraph);
@@ -81,6 +85,7 @@ router.get("/revenue-graph", authMiddleware, getRevenueGraph);
 router.get("/get-memberhip-plans", authMiddleware, getMembershipPlans);
 router.get("/get-old-premium", authMiddleware, getPreviousMemberships);
 router.get("/get-previous-premium", authMiddleware, getPreviousPremium);
+router.get("/auth-me", checkAuth);
 
 // Router put
 router.put("/upgrade-premium", authMiddleware, upgradePremium);

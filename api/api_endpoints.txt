@@ -37,3 +37,12 @@ GET ${baseUrl}/get-memberhip-plans -- Get membership plan details
 Login Page:
 POST ${baseUrl}/add-login -- Add login details
 POST ${baseUrl}/login -- Login and return token
+
+Authenticate:
+GET ${baseUrl}/auth-me  -- Check if the token is valid
+
+Logout:
+POST ${baseUrl}/logout  -- Logout and clear the token
+
+JWT Generator:
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"

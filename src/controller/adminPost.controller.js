@@ -34,6 +34,9 @@ const registerCandidate = async (req, res) => {
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
+    const candidateTypeLower = candidateType.toLowerCase();
+    const trainerTypeLower = trainerType.toLowerCase();
+
     await client.query("BEGIN");
 
     const findQuery = `
@@ -83,9 +86,9 @@ const registerCandidate = async (req, res) => {
       dateOfBirth,
       bloodGroup,
       gender,
-      trainerType,
+      trainerTypeLower,
       premiumType,
-      candidateType,
+      candidateTypeLower,
       goal,
       dateOfJoining,
       height,
@@ -285,13 +288,13 @@ const returnToken = async (req, res) => {
     const { rows } = await db.query(query, [email]);
 
     if (rows.length === 0) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     const user = rows[0];
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     const payload = { id: user.id, email: user.email_address };

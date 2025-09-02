@@ -48,7 +48,7 @@ const validateCandidate = (req, res, next) => {
       .json({ error: "Phone number must be exactly 10 digits" });
   }
 
-  if (password.length != 8) {
+  if (password.length < 8) {
     return res
       .status(400)
       .json({ error: "Password must be 6-20 characters long" });
@@ -232,7 +232,7 @@ const validateLogin = (req, res, next) => {
     return res.status(400).json({ message: "Invalid email format" });
   }
 
-  if (password.length <= 8) {
+  if (password.length < 7) {
     return res
       .status(400)
       .json({ message: "Password must be greater than 8 characters" });
