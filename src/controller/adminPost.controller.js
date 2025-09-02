@@ -1,0 +1,328 @@
+// Import from the Database folder
+const db = require("../db/db.js");
+
+// Importing the module
+const bcrypt = require("bcrypt");
+const jwt = require("jsonwebtoken");
+
+const JWT_SECRET =
+  "2cda5d853d78bc5e20f9d272f809abfaaff4154b7c0e2643dd2434a8b9386eb4";
+
+// Candidate Registeration Page
+const registerCandidate = async (req, res) => {
+  const client = await db.connect();
+  try {
+    const {
+      phoneNumber,
+      candidateName,
+      bloodGroup,
+      dateOfBirth,
+      gender,
+      trainerType,
+      premiumType = "None",
+      height,
+      dateOfJoining,
+      weight,
+      address,
+      password,
+      candidateType,
+      goal = null,
+      email = null,
+      isMembership = false,
+    } = req.body;
+
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    await client.query("BEGIN");
+
+    const findQuery = `
+      SELECT user_id 
+      FROM candidate 
+      WHERE user_id LIKE 'U%' 
+      ORDER BY CAST(SUBSTRING(user_id, 2) AS INT) DESC 
+      LIMIT 1;
+    `;
+    const { rows: existingRows } = await client.query(findQuery);
+
+    let newUserId;
+    if (existingRows.length === 0 || !existingRows[0].user_id) {
+      newUserId = "U1";
+    } else {
+      const lastUserId = existingRows[0].user_id;
+      const lastNumber = parseInt(lastUserId.substring(1), 10);
+      newUserId = `U${lastNumber + 1}`;
+    }
+
+    const insertCandidateQuery = `
+      INSERT INTO candidate (
+        user_id,
+        candidate_name,
+        phone_number,
+        date_of_birth,
+        blood_group,
+        gender,
+        trainer_type,
+        premium_type,
+        candidate_type,
+        goal,
+        date_of_joining,
+        height,
+        weight,
+        address,
+        email,
+        is_membership
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+      RETURNING id, user_id;
+    `;
+
+    const candidateValues = [
+      newUserId,
+      candidateName,
+      phoneNumber,
+      dateOfBirth,
+      bloodGroup,
+      gender,
+      trainerType,
+      premiumType,
+      candidateType,
+      goal,
+      dateOfJoining,
+      height,
+      weight,
+      address,
+      email,
+      isMembership,
+    ];
+
+    const { rows: candidateRows } = await client.query(
+      insertCandidateQuery,
+      candidateValues
+    );
+
+    const userId = candidateRows[0].user_id;
+
+    const insertUserQuery = `
+      INSERT INTO users (user_id, username, password)
+      VALUES ($1, $2, $3)
+      RETURNING id;
+    `;
+    await client.query(insertUserQuery, [
+      userId,
+      candidateName,
+      hashedPassword,
+    ]);
+
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      message: "Candidate registered successfully",
+      id: candidateRows[0].id,
+      userId: candidateRows[0].user_id,
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error registering candidate:", err);
+    res.status(500).json({ error: "Server error" });
+  } finally {
+    client.release();
+  }
+};
+
+const registerMemberShip = async (req, res) => {
+  const {
+    userId,
+    memberName,
+    memberType,
+    amount,
+    duration,
+    endDate,
+    paymentType,
+  } = req.body;
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    const memberTypeLower = memberType.toLowerCase();
+    const paymentTypeLower = paymentType.toLowerCase();
+
+    const insertMembershipQuery = `
+      INSERT INTO membership_details (
+        user_id, member_name, member_type, amount, duration, end_date, payment_type
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING *;
+    `;
+
+    const membershipValues = [
+      userId,
+      memberName,
+      memberTypeLower,
+      amount,
+      duration,
+      endDate,
+      paymentTypeLower,
+    ];
+
+    const { rows: membershipRows } = await client.query(
+      insertMembershipQuery,
+      membershipValues
+    );
+
+    const insertRevenueQuery = `
+      INSERT INTO revenue_analysis (amount, date_payes)
+      VALUES ($1, CURRENT_DATE)
+      RETURNING *;
+    `;
+
+    await client.query(insertRevenueQuery, [amount]);
+
+    await client.query("COMMIT");
+
+    res.status(201).json({
+      message: "Membership registered successfully",
+      data: membershipRows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error registering membership:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    client.release();
+  }
+};
+
+// Progress Page
+const registerProgress = async (req, res) => {
+  const { date, vFat, userId, bmr, candidateName, bmi, weight, bAge, fat } =
+    req.body;
+
+  try {
+    const lowerUserId = userId ? String(userId).toLowerCase() : null;
+    const lowerCandidateName = candidateName
+      ? String(candidateName).toLowerCase()
+      : null;
+
+    const query = `
+      INSERT INTO progress_tracking (
+        user_id,
+        candidate_name,
+        entry_date,
+        weight_kg,
+        fat,
+        v_fat,
+        bmr,
+        bmi,
+        b_age
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      RETURNING *;
+    `;
+
+    const values = [
+      lowerUserId,
+      lowerCandidateName,
+      date,
+      weight,
+      fat,
+      vFat,
+      bmr,
+      bmi,
+      bAge,
+    ];
+
+    const { rows } = await db.query(query, values);
+
+    res.status(201).json({
+      message: "Progress registered successfully",
+      data: rows[0],
+    });
+  } catch (err) {
+    console.error("Error inserting progress:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+// Login Page
+const registerLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const existingUser = await db.query(
+      "SELECT * FROM admin_login WHERE email_address = $1",
+      [email]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    const saltRounds = 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    const insertQuery = `
+      INSERT INTO admin_login (email_address, password)
+      VALUES ($1, $2)
+      RETURNING id, email_address;
+    `;
+    const result = await db.query(insertQuery, [email, hashedPassword]);
+
+    res.status(201).json({
+      message: "Admin registered successfully",
+      user: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error registering admin:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const returnToken = async (req, res) => {
+  try {
+    const { email, password, isRemember } = req.body;
+
+    const query = "SELECT * FROM admin_login WHERE email_address = $1";
+    const { rows } = await db.query(query, [email]);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const user = rows[0];
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: "Invalid email or password" });
+    }
+
+    const payload = { id: user.id, email: user.email_address };
+    const expiresIn = isRemember ? "24h" : "1h";
+
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn });
+    const maxAge = isRemember ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
+
+    const isProduction = false; // change to true when deploying
+
+    res.cookie("token", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "strict",
+      maxAge: maxAge,
+    });
+
+    res.status(200).json({
+      message: "Login successful",
+      expiresIn,
+    });
+  } catch (error) {
+    console.error("Error during login:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+module.exports = {
+  registerCandidate,
+  registerProgress,
+  registerMemberShip,
+  registerLogin,
+  returnToken,
+};

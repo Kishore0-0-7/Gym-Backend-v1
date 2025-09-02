@@ -1,0 +1,39 @@
+Base URL for admin:
+- Local: "http://localhost:3000/api/admin"
+- Global: ""
+
+Dashboard Page:
+GET ${baseUrl}/get-expiry-list -- Get Membership Expiry List
+GET ${baseUrl}/get-dashboard -- Get dashboard box details
+GET ${baseUrl}/get-dashboard-graph -- Get the graph details for the dashboard
+GET ${baseUrl}/revenue-graph -- Get revenue graph data
+
+Register Candidate Page:
+POST   ${baseUrl}/register-candidate -- Register Candidate
+POST   ${baseUrl}/register-membership -- Register Membership
+DELETE ${baseUrl}/remove-candidate -- Remove Candidate
+GET    ${baseUrl}/get-name -- Candidate Name and Id list
+
+Progress Tracking Page:
+GET  ${baseUrl}/progress-all -- Get all users' progress tracking
+POST ${baseUrl}/register-progress -- Add progress for a user
+GET  ${baseUrl}/get-progress -- Get progress of a single user
+
+User List Page:
+GET ${baseUrl}/get-user-lists -- Returns all registered users
+
+Candidate Information Page:
+GET ${baseUrl}/get-candidate-info -- Get single user detail
+
+Premium Membership Page:
+PUT ${baseUrl}/upgrade-premium -- Upgrade or add premium membership
+GET ${baseUrl}/get-old-premium -- Get all previous memberships for a user
+GET ${baseUrl}/get-previous-premium -- Get last premium membership info
+
+Report Page:
+GET ${baseUrl}/get-report -- Get detailed report data
+GET ${baseUrl}/get-memberhip-plans -- Get membership plan details
+
+Login Page:
+POST ${baseUrl}/add-login -- Add login details
+POST ${baseUrl}/login -- Login and return token
