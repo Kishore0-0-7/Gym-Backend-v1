@@ -6,29 +6,21 @@ const adminRoutes = require("./routes/admin.routes.js");
 
 const app = express();
 
-// ✅ CORS config - Allow all origins
+// ✅ Allowed origins
+const allowedOrigins = [
+  "http://localhost:5173", // for local dev
+  "https://gym.artechnology.pro", // main frontend domain (prod)
+  "https://gym-backend.artechnology.pro", // optional (API domain itself)
+];
+
+// ✅ Secure CORS config
 app.use(
   cors({
-    origin: "*", // allow all origins explicitly
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
+    origin: function (origin, callback) {
+    },
     credentials: true, // allow cookies & auth headers
   })
 );
-
-// Additional CORS headers for preflight requests
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie");
-  res.header("Access-Control-Allow-Credentials", "true");
-  
-  if (req.method === "OPTIONS") {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
