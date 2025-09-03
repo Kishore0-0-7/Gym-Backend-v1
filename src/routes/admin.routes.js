@@ -51,46 +51,46 @@ const router = express.Router();
 // Routes post
 router.post(
   "/register-candidate",
-  authMiddleware,
+  
   validateCandidate,
   registerCandidate
 );
 router.post(
   "/register-membership",
-  authMiddleware,
+  
   validateMembership,
   registerMemberShip
 );
 router.post(
   "/register-progress",
-  authMiddleware,
+  
   validateProgress,
   registerProgress
 );
-router.post("/get-candidate-info", authMiddleware, getCandidateInformation);
+router.post("/get-candidate-info",  getCandidateInformation);
 router.post("/add-login", registerLogin);
 router.post("/login", validateLogin, returnToken);
 router.post("/logout", handleLogout);
 
 // Routes Get
-router.get("/progress-all", authMiddleware, getAllProgress);
-router.get("/get-progress", authMiddleware, getProgress);
-router.get("/get-name", authMiddleware, getUsernameAndId);
-router.get("/get-user-lists", authMiddleware, getUserList);
-router.get("/get-expiry-list", authMiddleware, getExpireMembership);
-router.get("/get-dashboard", authMiddleware, getDashboard);
-router.get("/get-dashboard-graph", authMiddleware, getDashboardGraph);
-router.get("/get-report", authMiddleware, getReport);
-router.get("/revenue-graph", authMiddleware, getRevenueGraph);
-router.get("/get-memberhip-plans", authMiddleware, getMembershipPlans);
-router.get("/get-old-premium", authMiddleware, getPreviousMemberships);
-router.get("/get-previous-premium", authMiddleware, getPreviousPremium);
+router.get("/progress-all",  getAllProgress);
+router.get("/get-progress",  getProgress);
+router.get("/get-name",  getUsernameAndId);
+router.get("/get-user-lists",  getUserList);
+router.get("/get-expiry-list",  getExpireMembership);
+router.get("/get-dashboard",  getDashboard);
+router.get("/get-dashboard-graph",  getDashboardGraph);
+router.get("/get-report",  getReport);
+router.get("/revenue-graph",  getRevenueGraph);
+router.get("/get-memberhip-plans",  getMembershipPlans);
+router.get("/get-old-premium",  getPreviousMemberships);
+router.get("/get-previous-premium",  getPreviousPremium);
 router.get("/auth-me", checkAuth);
 
 // Router put
-router.put("/upgrade-premium", authMiddleware, upgradePremium);
+router.put("/upgrade-premium",  upgradePremium);
 
 // Routes delete
-router.delete("/remove-candidate", authMiddleware, removeCandidate);
+router.delete("/remove-candidate",  removeCandidate);
 
 module.exports = router;
