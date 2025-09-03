@@ -2,9 +2,10 @@
 const db = require("../db/db.js");
 
 // Importing the module
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
+// bycrypt
 const JWT_SECRET =
   "859f98bb8b60e7f3d6d3497859b6d0b70c7a2c3873add50f38b12c303600a402ef777820e86824081a022af2c2fffe70ee2b417908396cd48bba06b649d0354c";
 
