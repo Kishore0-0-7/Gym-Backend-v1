@@ -48,6 +48,41 @@ const validateCandidate = (req, res, next) => {
       .json({ error: "Phone number must be exactly 10 digits" });
   }
 
+  // Validate gender
+  const validGenders = ['male', 'female', 'Male', 'Female'];
+  if (!validGenders.includes(gender)) {
+    return res
+      .status(400)
+      .json({ error: "Gender must be either 'male' or 'female'" });
+  }
+
+  // Validate trainer type
+  const validTrainerTypes = ['trainer', 'personal trainer', 'Trainer', 'Personal Trainer', 'Personal trainer'];
+  if (!validTrainerTypes.includes(trainerType)) {
+    return res
+      .status(400)
+      .json({ error: "Trainer type must be either 'trainer' or 'personal trainer'" });
+  }
+
+  // Validate candidate type
+  const validCandidateTypes = ['gym', 'cardio', 'Gym', 'Cardio'];
+  if (!validCandidateTypes.includes(candidateType)) {
+    return res
+      .status(400)
+      .json({ error: "Candidate type must be either 'gym' or 'cardio'" });
+  }
+
+  // Validate goal (if provided)
+  if (goal) {
+    const validGoals = ['weight loss', 'weight gain', 'Weight Loss', 'Weight Gain'];
+    const goalLower = goal.toLowerCase();
+    if (!validGoals.some(validGoal => validGoal.toLowerCase() === goalLower)) {
+      return res
+        .status(400)
+        .json({ error: "Goal must be either 'weight loss' or 'weight gain'" });
+    }
+  }
+
   if (password.length < 8) {
     return res
       .status(400)

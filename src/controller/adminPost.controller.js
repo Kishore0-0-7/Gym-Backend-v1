@@ -11,8 +11,10 @@ const JWT_SECRET =
 
 // Candidate Registeration Page
 const registerCandidate = async (req, res) => {
-  const client = await db.connect();
+  let client;
   try {
+    client = await db.connect();
+    
     const {
       phoneNumber,
       candidateName,
@@ -36,7 +38,29 @@ const registerCandidate = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const candidateTypeLower = candidateType.toLowerCase();
-    const trainerTypeLower = trainerType.toLowerCase();
+    
+    // Normalize trainer type to match database constraints  
+    let normalizedTrainerType = trainerType.toLowerCase();
+    if (normalizedTrainerType.includes('personal')) {
+      normalizedTrainerType = 'personal trainer';
+    } else {
+      normalizedTrainerType = 'trainer';
+    }
+    
+    const genderLower = gender.toLowerCase();
+    
+    // Normalize goal value to match database constraints
+    let normalizedGoal = null;
+    if (goal) {
+      const goalLower = goal.toLowerCase();
+      if (goalLower.includes('loss') || goalLower === 'weight loss') {
+        normalizedGoal = 'weight loss';
+      } else if (goalLower.includes('gain') || goalLower === 'weight gain') {
+        normalizedGoal = 'weight gain';
+      } else {
+        normalizedGoal = goal.toLowerCase();
+      }
+    }
 
     await client.query("BEGIN");
 
@@ -86,11 +110,11 @@ const registerCandidate = async (req, res) => {
       phoneNumber,
       dateOfBirth,
       bloodGroup,
-      gender,
-      trainerTypeLower,
+      genderLower,
+      normalizedTrainerType,
       premiumType,
       candidateTypeLower,
-      goal,
+      normalizedGoal,
       dateOfJoining,
       height,
       weight,
@@ -125,11 +149,27 @@ const registerCandidate = async (req, res) => {
       userId: candidateRows[0].user_id,
     });
   } catch (err) {
-    await client.query("ROLLBACK");
+    if (client) {
+      await client.query("ROLLBACK");
+    }
     console.error("Error registering candidate:", err);
-    res.status(500).json({ error: "Server error" });
+    
+    // Send more specific error information based on database error codes
+    if (err.code === '23505') {
+      return res.status(409).json({ error: "User already exists" });
+    } else if (err.code === '23502') {
+      return res.status(400).json({ error: "Missing required field" });
+    } else if (err.code === '23514') {
+      return res.status(400).json({ error: "Invalid data format - please check gender, trainer type, candidate type, and goal values" });
+    }
+    
+    res.status(500).json({ 
+      error: "Server error" 
+    });
   } finally {
-    client.release();
+    if (client) {
+      client.release();
+    }
   }
 };
 
