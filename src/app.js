@@ -6,10 +6,15 @@ const adminRoutes = require("./routes/admin.routes.js");
 
 const app = express();
 
-// ✅ CORS config - Allow access from everywhere
+// ✅ CORS config - Allow access from everywhere with credentials support
 app.use(
   cors({
-    origin: "*", // Allow all origins
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+      // Allow all origins
+      return callback(null, origin);
+    },
     credentials: true, // allow cookies & auth headers
   })
 );
