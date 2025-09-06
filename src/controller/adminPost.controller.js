@@ -244,7 +244,7 @@ const registerLogin = async (req, res) => {
 
   try {
     const existingUser = await db.query(
-      "SELECT * FROM login_details WHERE email_address = $1",
+      "SELECT * FROM admin_login WHERE email_address = $1",
       [email]
     );
 
@@ -256,7 +256,7 @@ const registerLogin = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
     const insertQuery = `
-      INSERT INTO login_details (email_address, password)
+      INSERT INTO admin_login (email_address, password)
       VALUES ($1, $2)
       RETURNING id, email_address;
     `;
@@ -276,7 +276,7 @@ const returnToken = async (req, res) => {
   try {
     const { email, password, isRemember } = req.body;
 
-    const query = "SELECT * FROM login_details WHERE email_address = $1";
+    const query = "SELECT * FROM admin_login WHERE email_address = $1";
     const { rows } = await db.query(query, [email]);
 
     if (rows.length === 0) {
@@ -296,6 +296,7 @@ const returnToken = async (req, res) => {
     const maxAge = isRemember ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
 
     const isProduction = false; // change to true when deploying only in production
+    
 
     res.cookie("token", token, {
       httpOnly: true,
