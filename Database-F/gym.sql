@@ -69,7 +69,7 @@ CREATE TABLE revenue_analysis (
 );
 
 -- Admin login details
-CREATE TABLE admin_login (
+CREATE TABLE login_details (
   id SERIAL PRIMARY KEY,
   email_address VARCHAR(50) UNIQUE NOT NULL,
   password TEXT NOT NULL
