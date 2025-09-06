@@ -6,14 +6,17 @@ const adminRoutes = require("./routes/admin.routes.js");
 
 const app = express();
 
-// ✅ CORS config - Allow access from everywhere with credentials support
+// ✅ Allowed origins
+const allowedOrigins = [
+  "http://localhost:5173", // for local dev
+  "https://gym.artechnology.pro", // main frontend domain (prod)
+  "https://gym-backend.artechnology.pro", // optional (API domain itself)
+];
+
+// ✅ Secure CORS config
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      // Allow all origins
-      return callback(null, origin);
     },
     credentials: true, // allow cookies & auth headers
   })

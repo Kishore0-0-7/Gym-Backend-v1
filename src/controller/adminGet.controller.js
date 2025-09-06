@@ -42,10 +42,12 @@ const getProgress = async (req, res) => {
 };
 
 const getAllProgress = async (req, res) => {
+  const { id } = req.params;
+
   try {
     const query = `
       SELECT 
-        entry_date, 
+        TO_CHAR(entry_date, 'YYYY-MM-DD') AS entry_date,
         weight_kg, 
         fat, 
         v_fat, 
@@ -54,46 +56,86 @@ const getAllProgress = async (req, res) => {
         b_age
       FROM 
         progress_tracking
+      WHERE 
+        user_id = $1
+      ORDER BY 
+        entry_date DESC
     `;
 
-    const { rows } = await db.query(query);
+    const { rows } = await db.query(query, [id]);
 
-    if (rows.length === 0) {
-      return res.status(404).json({ message: "No progress records found." });
-    }
-
-    res.status(200).json({
-      message: "Progress records retrieved successfully",
-      data: rows,
+    return res.status(200).json({
+      success: true,
+      data: rows || [],
     });
   } catch (err) {
-    console.error("Error retrieving all progress records:", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error retrieving progress records:", err);
+    return res.status(500).json({
+      success: false,
+      error: "Internal Server Error",
+    });
   }
 };
 
 // Membership Register Page
-const getUsernameAndId = async (req, res) => {
+const getMembershipDetails = async (req, res) => {
   try {
-    const { userId } = req.body;
+    const { id } = req.params;
+    const userId = id;
 
     if (!userId) {
       return res.status(400).json({ error: "userId is required" });
     }
 
-    const query = `SELECT candidate_name FROM public.candidate WHERE user_id = $1`;
+    const query = `
+      SELECT 
+        c.candidate_name,
+        m.member_name,
+        COALESCE(m.amount, 0) AS amount,
+        TO_CHAR(m.start_date, 'FMDD Mon YYYY') AS start_date,
+        TO_CHAR(m.end_date, 'FMDD Mon YYYY') AS end_date,
+        COALESCE(m.duration, 0) AS duration_months
+      FROM candidate c
+      LEFT JOIN membership_details m
+        ON c.user_id = m.user_id
+      WHERE c.user_id = $1
+      ORDER BY m.end_date DESC NULLS LAST;
+    `;
+
     const { rows } = await db.query(query, [userId]);
 
     if (rows.length === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
+    const candidateName = rows[0].candidate_name;
+
+    const latestMembership = rows.find((row) => row.member_name) || null;
+
     return res.status(200).json({
       userId,
-      candidateName: rows[0].candidate_name,
+      candidateName,
+      latestMembership: latestMembership
+        ? {
+            memberName: latestMembership.member_name,
+            amount: latestMembership.amount,
+            startDate: latestMembership.start_date,
+            endDate: latestMembership.end_date,
+            durationMonths: latestMembership.duration_months,
+          }
+        : null,
+      membershipHistory: rows
+        .filter((row) => row.member_name)
+        .map((row) => ({
+          memberName: row.member_name,
+          amount: row.amount,
+          startDate: row.start_date,
+          endDate: row.end_date,
+          durationMonths: row.duration_months,
+        })),
     });
   } catch (err) {
-    console.error("Error fetching username:", err);
+    console.error("Error fetching membership details:", err);
     res.status(500).json({ error: "Server error" });
   }
 };
@@ -135,7 +177,7 @@ const getCandidateInformation = async (req, res) => {
   }
 
   try {
-    const query = `
+    const candidateQuery = `
       SELECT 
           c.candidate_name,
           c.user_id,
@@ -144,12 +186,10 @@ const getCandidateInformation = async (req, res) => {
           c.height,
           c.weight,
           c.gender,
-          c.trainer_type,
+          c.instructor,
           c.candidate_type,
           c.goal,
           c.address,
-          pt.bmr,
-          pt.bmi,
           m.duration,
           m.amount,
           m.start_date,
@@ -157,20 +197,28 @@ const getCandidateInformation = async (req, res) => {
           u.username,
           u.password
       FROM candidate c
-      LEFT JOIN (
-          SELECT DISTINCT ON (user_id)
-              user_id, bmr, bmi
-          FROM progress_tracking
-          ORDER BY user_id, entry_date DESC
-      ) pt ON c.user_id = pt.user_id
       LEFT JOIN membership_details m ON c.user_id = m.user_id
       LEFT JOIN users u ON c.user_id = u.user_id
       WHERE c.user_id = $1
       LIMIT 1;
     `;
 
-    const { rows } = await db.query(query, [userId]);
-    return res.status(200).json(rows[0] || {});
+    const { rows } = await db.query(candidateQuery, [userId]);
+    const candidateInfo = rows[0] || {};
+
+    const weightQuery = `
+      SELECT weight_kg, entry_date
+      FROM progress_tracking
+      WHERE user_id = $1
+      ORDER BY entry_date DESC
+      LIMIT 2;
+    `;
+
+    const weightResult = await db.query(weightQuery, [userId]);
+
+    candidateInfo.lastTwoWeights = weightResult.rows;
+
+    return res.status(200).json(candidateInfo);
   } catch (error) {
     console.error("Error fetching candidate information:", error);
     return res.status(500).json({ message: "Internal server error" });
@@ -188,14 +236,31 @@ const getExpireMembership = async (req, res) => {
         c.date_of_joining,
         c.blood_group,
         c.premium_type,
-        md.end_date
+        md.end_date,
+        (md.end_date::date - CURRENT_DATE) AS remaining_days
       FROM candidate c
       JOIN membership_details md 
         ON c.user_id = md.user_id
-      WHERE md.end_date IS NOT NULL;
+      WHERE md.end_date IS NOT NULL
+      AND md.end_date::date >= CURRENT_DATE -- only future memberships
+      AND md.end_date::date <= CURRENT_DATE + INTERVAL '7 days' -- expiring within 7 days
+      ORDER BY md.end_date ASC;
     `;
+
     const { rows } = await db.query(query);
-    res.status(200).json(rows);
+
+    const formatted = rows.map((row) => ({
+      userId: row.user_id,
+      candidateName: row.candidate_name,
+      phoneNumber: row.phone_number,
+      joiningDate: row.date_of_joining,
+      bloodGroup: row.blood_group,
+      premiumType: row.premium_type,
+      endDate: row.end_date,
+      expireIn: row.remaining_days,
+    }));
+
+    res.status(200).json(formatted);
   } catch (error) {
     console.error("Error fetching expiring memberships:", error);
     res.status(500).json({ message: "Server error" });
@@ -217,6 +282,7 @@ const getDashboard = async (req, res) => {
       lastMonthYear = year - 1;
     }
 
+    // Revenue Query
     const revenueQuery = `
       SELECT 
         COALESCE(SUM(CASE WHEN EXTRACT(YEAR FROM date_payes) = $1 
@@ -238,11 +304,17 @@ const getDashboard = async (req, res) => {
 
     const revenue = parseFloat(revenueRow.current_month);
     const lastRevenue = parseFloat(revenueRow.last_month);
+
+    // Calculate profit percentage
     const profitRevenue =
       lastRevenue === 0
         ? 100
         : (((revenue - lastRevenue) / lastRevenue) * 100).toFixed(2);
 
+    // Set profit flag for revenue
+    const isProfitRevenue = revenue >= lastRevenue;
+
+    // Candidate Query
     const candidateQuery = `
       SELECT 
         COALESCE(COUNT(CASE WHEN EXTRACT(YEAR FROM date_of_joining) = $1 
@@ -264,16 +336,24 @@ const getDashboard = async (req, res) => {
 
     const candidate = parseInt(candidateRow.current_month_users);
     const lastCandidate = parseInt(candidateRow.last_month_users);
+
+    // Calculate profit percentage
     const profitCandidate =
       lastCandidate === 0
         ? 100
         : (((candidate - lastCandidate) / lastCandidate) * 100).toFixed(2);
 
+    // Set profit flag for candidates
+    const isProfitCandidate = candidate >= lastCandidate;
+
+    // Final Response
     const response = {
       revenue,
       profitRevenue: parseFloat(profitRevenue),
+      isProfitRevenue, // ✅ Added
       candidate,
       profitCandidate: parseFloat(profitCandidate),
+      isProfitCandidate, // ✅ Added
     };
 
     res.status(200).json(response);
@@ -284,7 +364,7 @@ const getDashboard = async (req, res) => {
 };
 
 const getDashboardGraph = async (req, res) => {
-  const { year } = req.body;
+  const year = new Date().getFullYear();
 
   const query = `
     WITH months AS (
@@ -391,7 +471,6 @@ const getRevenueGraph = async (req, res) => {
       return acc;
     }, {});
 
-    // Fill data from DB
     rows.forEach((row) => {
       const monthIdx = monthIndexMap[row.month_name];
       if (row.candidate_type === "gym") {
@@ -409,48 +488,87 @@ const getRevenueGraph = async (req, res) => {
   }
 };
 
-const getMembershipPlans = async (req, res) => {
+const getMonthRevenueGraph = async (req, res) => {
+  try {
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+
+    const query = `
+      SELECT 
+        DATE_PART('day', md.start_date)::INT AS day_number,
+        LOWER(c.candidate_type) AS candidate_type,
+        COALESCE(SUM(md.amount), 0) AS revenue
+      FROM membership_details md
+      JOIN candidate c ON c.user_id = md.user_id
+      WHERE DATE_PART('year', md.start_date) = $1
+      AND DATE_PART('month', md.start_date) = $2
+      GROUP BY day_number, candidate_type
+      ORDER BY day_number;
+    `;
+
+    const { rows } = await db.query(query, [currentYear, currentMonth]);
+
+    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+
+    const result = Array.from({ length: daysInMonth }, (_, i) => ({
+      day: i + 1,
+      gym: 0,
+      cardio: 0,
+    }));
+
+    rows.forEach((row) => {
+      const dayIndex = row.day_number - 1;
+      if (row.candidate_type === "gym") {
+        result[dayIndex].gym = parseFloat(row.revenue);
+      } else if (row.candidate_type === "cardio") {
+        result[dayIndex].cardio = parseFloat(row.revenue);
+      }
+    });
+
+    res.status(200).json(result);
+  } catch (error) {
+    console.error("Error fetching month revenue graph:", error);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+const getPieChart = async (req, res) => {
   try {
     const query = `
-      SELECT duration, COUNT(*) AS count
+      SELECT 
+        CASE 
+          WHEN duration = 12 THEN 'One Year'
+          WHEN duration = 6 THEN 'Six Months'
+          WHEN duration = 3 THEN 'Three Months'
+          WHEN duration = 1 THEN 'One Month'
+          ELSE 'Others'
+        END AS plan_name,
+        COUNT(*)::INT AS count
       FROM membership_details
-      GROUP BY duration;
+      GROUP BY plan_name
+      ORDER BY plan_name;
     `;
 
     const { rows } = await db.query(query);
 
-    const resultMap = {
-      "One Year": 0,
-      "Six Months": 0,
-      "Three Months": 0,
-      "One Month": 0,
-      Others: 0,
+    const colorMap = {
+      "One Year": "#14b8a6",
+      "Six Months": "#ef4444",
+      "Three Months": "#a855f7",
+      "One Month": "#22c55e",
+      Others: "#f59e0b",
     };
 
-    rows.forEach((row) => {
-      const days = parseInt(row.duration);
-      const count = parseInt(row.count);
-
-      let planName;
-      if (days >= 360 && days <= 370) planName = "One Year";
-      else if (days >= 175 && days <= 185) planName = "Six Months";
-      else if (days >= 85 && days <= 95) planName = "Three Months";
-      else if (days >= 28 && days <= 32) planName = "One Month";
-      else planName = "Others";
-
-      resultMap[planName] += count;
-    });
-
-    const total = Object.values(resultMap).reduce((sum, c) => sum + c, 0);
-    const result = Object.entries(resultMap).map(([plan, value]) => ({
-      plan,
-      value,
-      percentage: total === 0 ? 0 : ((value / total) * 100).toFixed(1),
+    const result = rows.map((row) => ({
+      name: row.plan_name,
+      value: row.count,
+      color: colorMap[row.plan_name] || "#8884d8",
     }));
 
     res.status(200).json(result);
   } catch (error) {
-    console.error("Error fetching membership plans:", error);
+    console.error("Error fetching pie chart data:", error);
     res.status(500).json({ message: "Server error" });
   }
 };
@@ -543,10 +661,54 @@ const getPreviousPremium = async (req, res) => {
   }
 };
 
+// Candidate Reg Page
+const getNewUserId = async (req, res) => {
+  const findQuery = `
+    SELECT user_id 
+    FROM candidate 
+    WHERE user_id LIKE 'U%' 
+    ORDER BY CAST(SUBSTRING(user_id, 2) AS INT) DESC 
+    LIMIT 1;
+  `;
+
+  const { rows: existingRows } = await db.query(findQuery);
+
+  let newUserId;
+  if (existingRows.length === 0 || !existingRows[0].user_id) {
+    newUserId = "U001";
+  } else {
+    const lastUserId = existingRows[0].user_id;
+    const lastNumber = parseInt(lastUserId.substring(1), 10);
+    const nextNumber = lastNumber + 1;
+
+    if (nextNumber < 1000) {
+      newUserId = `U${String(nextNumber).padStart(3, "0")}`;
+    } else {
+      newUserId = `U${nextNumber}`;
+    }
+  }
+
+  res.status(200).json(newUserId);
+};
+
+const getCandidateLists = async (req, res) => {
+  try {
+    const query =
+      "SELECT user_id, candidate_name FROM candidate ORDER BY candidate_name ASC";
+    const result = await db.query(query);
+
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("Error fetching candidate list:", err);
+    res.status(500).json({ error: "Failed to fetch candidate list" });
+  }
+};
+
 module.exports = {
+  getMembershipDetails,
+  getNewUserId,
   getProgress,
   getAllProgress,
-  getUsernameAndId,
   getUserList,
   getCandidateInformation,
   getExpireMembership,
@@ -554,7 +716,9 @@ module.exports = {
   getDashboardGraph,
   getReport,
   getRevenueGraph,
-  getMembershipPlans,
   getPreviousMemberships,
   getPreviousPremium,
+  getCandidateLists,
+  getMonthRevenueGraph,
+  getPieChart,
 };

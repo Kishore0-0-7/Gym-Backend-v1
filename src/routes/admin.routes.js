@@ -21,14 +21,19 @@ const {
   getDashboardGraph,
   getReport,
   getRevenueGraph,
-  getMembershipPlans,
   getPreviousMemberships,
   getPreviousPremium,
+  getNewUserId,
+  getMembershipDetails,
+  getCandidateLists,
+  getMonthRevenueGraph,
+  getPieChart,
 } = require("../controller/adminGet.controller");
 
 const {
   removeCandidate,
   upgradePremium,
+  updateCandidateInfo,
 } = require("../controller/admin.controller");
 
 // Imports from the folder Middleware
@@ -51,46 +56,52 @@ const router = express.Router();
 // Routes post
 router.post(
   "/register-candidate",
-  
+  authMiddleware,
   validateCandidate,
   registerCandidate
 );
 router.post(
   "/register-membership",
-  
+  authMiddleware,
   validateMembership,
   registerMemberShip
 );
 router.post(
   "/register-progress",
-  
+  authMiddleware,
   validateProgress,
   registerProgress
 );
-router.post("/get-candidate-info",  getCandidateInformation);
+router.post("/get-candidate-info", getCandidateInformation);
 router.post("/add-login", registerLogin);
 router.post("/login", validateLogin, returnToken);
 router.post("/logout", handleLogout);
+router.post("/get-dashboard", authMiddleware, getDashboard);
 
 // Routes Get
-router.get("/progress-all",  getAllProgress);
-router.get("/get-progress",  getProgress);
-router.get("/get-name",  getUsernameAndId);
-router.get("/get-user-lists",  getUserList);
-router.get("/get-expiry-list",  getExpireMembership);
-router.get("/get-dashboard",  getDashboard);
-router.get("/get-dashboard-graph",  getDashboardGraph);
-router.get("/get-report",  getReport);
-router.get("/revenue-graph",  getRevenueGraph);
-router.get("/get-memberhip-plans",  getMembershipPlans);
-router.get("/get-old-premium",  getPreviousMemberships);
-router.get("/get-previous-premium",  getPreviousPremium);
+router.get("/get-old-membership/:id", authMiddleware, getMembershipDetails);
+router.get("/new-user-id", authMiddleware, getNewUserId);
+router.get("/get-list", authMiddleware, getCandidateLists);
+router.get("/progress/:id", authMiddleware, getAllProgress);
+router.get("/get-progress", authMiddleware, getProgress);
+router.get("/get-membership/:id", getMembershipDetails);
+router.get("/get-user-lists", authMiddleware, getUserList);
+router.get("/get-expiry-list", authMiddleware, getExpireMembership);
+router.get("/get-dashboard-graph", authMiddleware, getDashboardGraph);
+router.get("/get-report", authMiddleware, getReport);
+router.get("/revenue-year-graph", authMiddleware, getRevenueGraph);
+router.get("/revenue-month-graph", authMiddleware, getMonthRevenueGraph);
+router.get("/get-pie-chart", authMiddleware, getPieChart);
+// router.get("/get-memberhip-plans", authMiddleware, getMembershipPlans);
+router.get("/get-old-premium", authMiddleware, getPreviousMemberships);
+router.get("/get-previous-premium", authMiddleware, getPreviousPremium);
 router.get("/auth-me", checkAuth);
 
 // Router put
-router.put("/upgrade-premium",  upgradePremium);
+router.put("/upgrade-premium", authMiddleware, upgradePremium);
+router.put("/update-details", authMiddleware, updateCandidateInfo);
 
 // Routes delete
-router.delete("/remove-candidate",  removeCandidate);
+router.delete("/remove-candidate/:id", authMiddleware, removeCandidate);
 
 module.exports = router;

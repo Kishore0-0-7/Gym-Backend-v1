@@ -5,82 +5,54 @@ const db = require("../db/db.js");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
-// bycrypt
 const JWT_SECRET =
   "859f98bb8b60e7f3d6d3497859b6d0b70c7a2c3873add50f38b12c303600a402ef777820e86824081a022af2c2fffe70ee2b417908396cd48bba06b649d0354c";
 
 // Candidate Registeration Page
 const registerCandidate = async (req, res) => {
-  let client;
+  const client = await db.connect();
   try {
-    client = await db.connect();
-    
+    await client.query("BEGIN");
+
     const {
-      phoneNumber,
+      userId,
       candidateName,
-      bloodGroup,
+      phoneNumber,
       dateOfBirth,
+      bloodGroup,
       gender,
-      trainerType,
+      instructor,
       premiumType = "None",
-      height,
-      dateOfJoining,
-      weight,
-      address,
-      password,
       candidateType,
       goal = null,
+      dateOfJoining,
+      height,
+      weight,
+      address,
       email = null,
       isMembership = false,
+      password,
     } = req.body;
+
+    const existingCheck = await client.query(
+      "SELECT id FROM candidate WHERE phone_number = $1 LIMIT 1",
+      [phoneNumber]
+    );
+
+    if (existingCheck.rows.length > 0) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        message: "Candidate with this phone number already exists",
+      });
+    }
+
+    const genderLower = gender.toLowerCase();
+    const instructorLower = instructor.toLowerCase();
+    const candidateTypeLower = candidateType.toLowerCase();
+    const goalLower = goal ? goal.toLowerCase() : null;
 
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    const candidateTypeLower = candidateType.toLowerCase();
-    
-    // Normalize trainer type to match database constraints  
-    let normalizedTrainerType = trainerType.toLowerCase();
-    if (normalizedTrainerType.includes('personal')) {
-      normalizedTrainerType = 'personal trainer';
-    } else {
-      normalizedTrainerType = 'trainer';
-    }
-    
-    const genderLower = gender.toLowerCase();
-    
-    // Normalize goal value to match database constraints
-    let normalizedGoal = null;
-    if (goal) {
-      const goalLower = goal.toLowerCase();
-      if (goalLower.includes('loss') || goalLower === 'weight loss') {
-        normalizedGoal = 'weight loss';
-      } else if (goalLower.includes('gain') || goalLower === 'weight gain') {
-        normalizedGoal = 'weight gain';
-      } else {
-        normalizedGoal = goal.toLowerCase();
-      }
-    }
-
-    await client.query("BEGIN");
-
-    const findQuery = `
-      SELECT user_id 
-      FROM candidate 
-      WHERE user_id LIKE 'U%' 
-      ORDER BY CAST(SUBSTRING(user_id, 2) AS INT) DESC 
-      LIMIT 1;
-    `;
-    const { rows: existingRows } = await client.query(findQuery);
-
-    let newUserId;
-    if (existingRows.length === 0 || !existingRows[0].user_id) {
-      newUserId = "U1";
-    } else {
-      const lastUserId = existingRows[0].user_id;
-      const lastNumber = parseInt(lastUserId.substring(1), 10);
-      newUserId = `U${lastNumber + 1}`;
-    }
 
     const insertCandidateQuery = `
       INSERT INTO candidate (
@@ -90,7 +62,7 @@ const registerCandidate = async (req, res) => {
         date_of_birth,
         blood_group,
         gender,
-        trainer_type,
+        instructor,
         premium_type,
         candidate_type,
         goal,
@@ -105,16 +77,16 @@ const registerCandidate = async (req, res) => {
     `;
 
     const candidateValues = [
-      newUserId,
+      userId,
       candidateName,
       phoneNumber,
       dateOfBirth,
       bloodGroup,
       genderLower,
-      normalizedTrainerType,
+      instructorLower,
       premiumType,
       candidateTypeLower,
-      normalizedGoal,
+      goalLower,
       dateOfJoining,
       height,
       weight,
@@ -127,8 +99,6 @@ const registerCandidate = async (req, res) => {
       insertCandidateQuery,
       candidateValues
     );
-
-    const userId = candidateRows[0].user_id;
 
     const insertUserQuery = `
       INSERT INTO users (user_id, username, password)
@@ -149,27 +119,11 @@ const registerCandidate = async (req, res) => {
       userId: candidateRows[0].user_id,
     });
   } catch (err) {
-    if (client) {
-      await client.query("ROLLBACK");
-    }
+    await client.query("ROLLBACK");
     console.error("Error registering candidate:", err);
-    
-    // Send more specific error information based on database error codes
-    if (err.code === '23505') {
-      return res.status(409).json({ error: "User already exists" });
-    } else if (err.code === '23502') {
-      return res.status(400).json({ error: "Missing required field" });
-    } else if (err.code === '23514') {
-      return res.status(400).json({ error: "Invalid data format - please check gender, trainer type, candidate type, and goal values" });
-    }
-    
-    res.status(500).json({ 
-      error: "Server error" 
-    });
+    res.status(500).json({ error: "Server error" });
   } finally {
-    if (client) {
-      client.release();
-    }
+    client.release();
   }
 };
 
@@ -177,9 +131,9 @@ const registerMemberShip = async (req, res) => {
   const {
     userId,
     memberName,
-    memberType,
     amount,
     duration,
+    startDate,
     endDate,
     paymentType,
   } = req.body;
@@ -188,12 +142,11 @@ const registerMemberShip = async (req, res) => {
   try {
     await client.query("BEGIN");
 
-    const memberTypeLower = memberType.toLowerCase();
     const paymentTypeLower = paymentType.toLowerCase();
 
     const insertMembershipQuery = `
       INSERT INTO membership_details (
-        user_id, member_name, member_type, amount, duration, end_date, payment_type
+        user_id, member_name, amount, duration, start_date, end_date, payment_type
       ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *;
     `;
@@ -201,9 +154,9 @@ const registerMemberShip = async (req, res) => {
     const membershipValues = [
       userId,
       memberName,
-      memberTypeLower,
       amount,
       duration,
+      startDate,
       endDate,
       paymentTypeLower,
     ];
@@ -242,10 +195,8 @@ const registerProgress = async (req, res) => {
     req.body;
 
   try {
-    const lowerUserId = userId ? String(userId).toLowerCase() : null;
-    const lowerCandidateName = candidateName
-      ? String(candidateName).toLowerCase()
-      : null;
+    const lowerUserId = userId;
+    const lowerCandidateName = candidateName;
 
     const query = `
       INSERT INTO progress_tracking (
