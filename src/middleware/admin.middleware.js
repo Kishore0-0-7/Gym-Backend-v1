@@ -7,7 +7,7 @@ const validateCandidate = (req, res, next) => {
     bloodGroup,
     gender,
     candidateType,
-    trainerType,
+    instructor,
     goal,
     premiumType,
     height,
@@ -24,7 +24,7 @@ const validateCandidate = (req, res, next) => {
     !bloodGroup?.trim() ||
     !gender?.trim() ||
     !candidateType?.trim() ||
-    !trainerType?.trim() ||
+    !instructor?.trim() ||
     !goal?.trim() ||
     !premiumType?.trim() ||
     height == null ||
@@ -36,28 +36,57 @@ const validateCandidate = (req, res, next) => {
     return res.status(400).json({ error: "All fields are required" });
   }
 
-  if (candidateName.length < 3 || candidateName.length > 50) {
+  if (candidateName.length < 3 || candidateName.length > 100) {
     return res
       .status(400)
-      .json({ error: "Candidate name must be 3-50 characters long" });
+      .json({ error: "Candidate name must be 3-100 characters long" });
   }
 
-  if (phoneNumber.length !== 10 || !/^\d+$/.test(phoneNumber)) {
+  if (phoneNumber.length !== 10 || !/^\d{10}$/.test(phoneNumber)) {
     return res
       .status(400)
       .json({ error: "Phone number must be exactly 10 digits" });
   }
 
-  if (password.length < 8) {
+  if (!["male", "female"].includes(gender.toLowerCase())) {
     return res
       .status(400)
-      .json({ error: "Password must be 6-20 characters long" });
+      .json({ error: "Gender must be either 'male' or 'female'" });
   }
 
-  if (address.length < 5 || address.length > 100) {
+  if (
+    !["general trainer", "personal trainer"].includes(instructor.toLowerCase())
+  ) {
+    return res.status(400).json({
+      error: "Instructor must be 'general trainer' or 'personal trainer'",
+    });
+  }
+
+  if (!["gym", "cardio"].includes(candidateType.toLowerCase())) {
     return res
       .status(400)
-      .json({ error: "Address must be 5-100 characters long" });
+      .json({ error: "Candidate type must be 'gym' or 'cardio'" });
+  }
+
+  if (
+    goal &&
+    !["weight loss", "weight gain", "fitness"].includes(goal.toLowerCase())
+  ) {
+    return res.status(400).json({
+      error: "Goal must be 'weight loss', 'weight gain' or 'fitness'",
+    });
+  }
+
+  if (password.length < 8 || password.length > 20) {
+    return res
+      .status(400)
+      .json({ error: "Password must be 8-20 characters long" });
+  }
+
+  if (address.length < 5 || address.length > 200) {
+    return res
+      .status(400)
+      .json({ error: "Address must be 5-200 characters long" });
   }
 
   if (isNaN(height) || height <= 0) {
@@ -75,9 +104,9 @@ const validateMembership = (req, res, next) => {
   const {
     userId,
     memberName,
-    memberType,
     amount,
     duration,
+    startDate,
     endDate,
     paymentType,
   } = req.body;
@@ -85,7 +114,7 @@ const validateMembership = (req, res, next) => {
   if (
     !userId ||
     !memberName ||
-    !memberType ||
+    !startDate ||
     amount === undefined ||
     amount === null ||
     duration === undefined ||
@@ -108,20 +137,14 @@ const validateMembership = (req, res, next) => {
       .json({ error: "memberName must be between 1 and 50 characters long" });
   }
 
-  if (memberType.length === 0 || memberType.length > 50) {
-    return res
-      .status(400)
-      .json({ error: "memberType must be between 1 and 50 characters long" });
-  }
-
   if (amount < 999 || amount > 100000) {
     return res
       .status(400)
       .json({ error: "amount must be between 999 and 100000" });
   }
 
-  if (duration < 15) {
-    return res.status(400).json({ error: "duration must be at least 15" });
+  if (duration > 13) {
+    return res.status(400).json({ error: "duration must be below 12" });
   }
 
   if (paymentType.length === 0 || paymentType.length > 50) {

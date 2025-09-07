@@ -34,6 +34,7 @@ const {
   removeCandidate,
   upgradePremium,
   updateCandidateInfo,
+  updateLoginDetails,
 } = require("../controller/admin.controller");
 
 // Imports from the folder Middleware
@@ -100,6 +101,7 @@ router.get("/auth-me", checkAuth);
 // Router put
 router.put("/upgrade-premium", authMiddleware, upgradePremium);
 router.put("/update-details", authMiddleware, updateCandidateInfo);
+router.put("/update-login-info", authMiddleware, updateLoginDetails);
 
 // Routes delete
 router.delete("/remove-candidate/:id", authMiddleware, removeCandidate);

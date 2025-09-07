@@ -156,8 +156,13 @@ const getUserList = async (req, res) => {
           ELSE 'active'
         END AS status
       FROM candidate c
-      LEFT JOIN membership_details m 
-        ON c.user_id = m.user_id;
+      LEFT JOIN LATERAL (
+        SELECT *
+        FROM membership_details m
+        WHERE m.user_id = c.user_id
+        ORDER BY m.start_date DESC
+        LIMIT 1
+      ) m ON true;
     `;
 
     const { rows } = await db.query(query);

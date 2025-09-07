@@ -124,7 +124,6 @@ const upgradePremium = async (req, res) => {
 const updateCandidateInfo = async (req, res) => {
   const {
     userId,
-    candidate_name,
     phone_number,
     blood_group,
     height,
@@ -134,7 +133,6 @@ const updateCandidateInfo = async (req, res) => {
     candidate_type,
     goal,
     address,
-    email,
     username,
     password,
   } = req.body;
@@ -147,26 +145,24 @@ const updateCandidateInfo = async (req, res) => {
   try {
     await client.query("BEGIN");
 
+    // Update only the required candidate fields
     const updateCandidateQuery = `
       UPDATE candidate
-      SET candidate_name = $1,
-          phone_number = $2,
-          blood_group = $3,
-          height = $4,
-          weight = $5,
-          gender = $6,
-          instructor = $7,
-          candidate_type = $8,
-          goal = $9,
-          address = $10,
-          email = $11,
+      SET phone_number = $1,
+          blood_group = $2,
+          height = $3,
+          weight = $4,
+          gender = $5,
+          instructor = $6,
+          candidate_type = $7,
+          goal = $8,
+          address = $9,
           updated_at = CURRENT_TIMESTAMP
-      WHERE user_id = $12
+      WHERE user_id = $10
       RETURNING *;
     `;
 
     const candidateValues = [
-      candidate_name,
       phone_number,
       blood_group,
       height,
@@ -176,7 +172,6 @@ const updateCandidateInfo = async (req, res) => {
       candidate_type,
       goal,
       address,
-      email,
       userId,
     ];
 
@@ -190,6 +185,7 @@ const updateCandidateInfo = async (req, res) => {
       return res.status(404).json({ message: "Candidate not found" });
     }
 
+    // Update username/password if provided
     if (username || password) {
       let hashedPassword = null;
       if (password) {
@@ -223,4 +219,64 @@ const updateCandidateInfo = async (req, res) => {
   }
 };
 
-module.exports = { removeCandidate, upgradePremium, updateCandidateInfo };
+const updateLoginDetails = async (req, res) => {
+  const { userId, username, password } = req.body;
+
+  if (!userId || userId.trim() === "") {
+    return res.status(400).json({ message: "User ID is required" });
+  }
+
+  if (!username && !password) {
+    return res
+      .status(400)
+      .json({ message: "At least username or password must be provided" });
+  }
+
+  const client = await db.connect();
+  try {
+    await client.query("BEGIN");
+
+    let hashedPassword = null;
+    if (password) {
+      const saltRounds = 10;
+      hashedPassword = await bcrypt.hash(password, saltRounds);
+    }
+
+    const updateQuery = `
+      UPDATE users
+      SET username = COALESCE($1, username),
+          password = COALESCE($2, password)
+      WHERE user_id = $3
+      RETURNING *;
+    `;
+
+    const values = [username, hashedPassword, userId];
+
+    const { rows } = await client.query(updateQuery, values);
+
+    if (rows.length === 0) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    await client.query("COMMIT");
+
+    res.status(200).json({
+      message: "Login details updated successfully",
+      user: rows[0],
+    });
+  } catch (err) {
+    await client.query("ROLLBACK");
+    console.error("Error updating login details:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  } finally {
+    client.release();
+  }
+};
+
+module.exports = {
+  removeCandidate,
+  upgradePremium,
+  updateCandidateInfo,
+  updateLoginDetails,
+};
