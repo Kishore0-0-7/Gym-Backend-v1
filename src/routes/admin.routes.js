@@ -98,7 +98,8 @@ router.get("/get-report", authMiddleware, getReport);
 router.get("/revenue-year-graph", authMiddleware, getRevenueGraph);
 router.get("/revenue-month-graph", authMiddleware, getMonthRevenueGraph);
 router.get("/get-pie-chart", authMiddleware, getPieChart);
-router.get("/get-payment-chart", getPaymentGraph);
+router.get("/get-payment-chart", authMiddleware, getPaymentGraph);
+router.get("/get-payment-type", authMiddleware, getPaymentGraph); // Alias for frontend compatibility
 router.get("/get-old-premium", authMiddleware, getPreviousMemberships);
 router.get("/get-previous-premium", authMiddleware, getPreviousPremium);
 router.get("/membership-settings", authMiddleware, getMembershipSettings);
