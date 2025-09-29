@@ -287,7 +287,7 @@ const returnToken = async (req, res) => {
     res.cookie("token", token, {
       httpOnly: true,
       secure: isProduction,
-      sameSite: "strict",
+      sameSite: isProduction ? "none" : "lax", // "none" for cross-domain in production
       maxAge: maxAge,
     });
 
