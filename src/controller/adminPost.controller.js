@@ -282,7 +282,7 @@ const returnToken = async (req, res) => {
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn });
     const maxAge = isRemember ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
 
-    const isProduction = false; // change to true when deploying
+    const isProduction = true; // change to true when deploying
 
     res.cookie("token", token, {
       httpOnly: true,
