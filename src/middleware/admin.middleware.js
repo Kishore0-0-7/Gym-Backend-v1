@@ -158,7 +158,7 @@ const validateMembership = (req, res, next) => {
 
 // Progress Page
 const validateProgress = (req, res, next) => {
-  const { date, vFat, userId, bmr, candidateName, bmi, weight, bAge, fat } =
+  const { date, vFat, userId, bmr, bmi, weight, bAge, fat } =
     req.body;
 
   if (
@@ -179,16 +179,6 @@ const validateProgress = (req, res, next) => {
     return res
       .status(400)
       .json({ error: "userId is required and must be 1-20 characters" });
-  }
-
-  if (
-    !candidateName ||
-    String(candidateName).trim().length < 2 ||
-    String(candidateName).trim().length > 50
-  ) {
-    return res
-      .status(400)
-      .json({ error: "candidateName is required and must be 2-50 characters" });
   }
 
   if (

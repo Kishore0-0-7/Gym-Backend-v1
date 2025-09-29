@@ -149,6 +149,7 @@ const getUserList = async (req, res) => {
         c.candidate_name,
         c.phone_number,
         c.date_of_joining,
+        c.date_of_birth,
         c.blood_group,
         c.premium_type,
         CASE 
@@ -709,6 +710,50 @@ const getCandidateLists = async (req, res) => {
   }
 };
 
+const getPaymentGraph = async (req, res) => {
+  try {
+    const query = `
+      SELECT 
+          c.candidate_type,
+          md.payment_type,
+          COUNT(*) AS total
+      FROM candidate c
+      JOIN membership_details md 
+          ON c.user_id = md.user_id
+      GROUP BY c.candidate_type, md.payment_type
+      ORDER BY c.candidate_type, md.payment_type;
+    `;
+
+    const { rows } = await db.query(query);
+
+    const result = rows.reduce((acc, row) => {
+      const { candidate_type, payment_type, total } = row;
+      if (!acc[candidate_type]) {
+        acc[candidate_type] = { cash: 0, online: 0 };
+      }
+      acc[candidate_type][payment_type.toLowerCase()] = Number(total);
+      return acc;
+    }, {});
+
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching payment graph:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+
+const getMembershipSettings = async (req, res) => {
+  try {
+    const result = await db.query(
+      "SELECT candidate_type, instructor, duration, amount FROM membership_settings ORDER BY candidate_type, instructor, duration"
+    );
+    return res.status(200).json(result.rows);
+  } catch (error) {
+    console.error("Error fetching membership settings:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 module.exports = {
   getMembershipDetails,
   getNewUserId,
@@ -726,4 +771,6 @@ module.exports = {
   getCandidateLists,
   getMonthRevenueGraph,
   getPieChart,
+  getPaymentGraph,
+  getMembershipSettings,
 };

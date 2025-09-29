@@ -2,8 +2,7 @@ CREATE DATABASE gym;
 
 -- Progress Tracking Table
 CREATE TABLE progress_tracking (
-    user_id VARCHAR(10) NOT NULL,
-    candidate_name VARCHAR(50),
+    user_id VARCHAR(10) NOT NULL, 
     entry_date DATE NOT NULL,
     weight_kg DECIMAL(5,2) NOT NULL,
     fat DECIMAL(5,2) NOT NULL,
@@ -70,4 +69,13 @@ password varchar(20) unique not null
 CREATE TABLE revenue_analysis (
   amount DECIMAL(8,2),
   date_payes DATE
+);
+
+CREATE TABLE membership_settings (
+    id SERIAL PRIMARY KEY,                                -- auto-incrementing id
+    candidate_type VARCHAR(50) NOT NULL,                  -- Gym / Cardio
+    instructor VARCHAR(100) NOT NULL,                     -- General / Special
+    duration VARCHAR(50) NOT NULL,                        -- 1 Month, 3 Months, etc.
+    amount NUMERIC(10,2) NOT NULL,                        -- ₹ value (supports decimals)
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP        -- optional created timestamp
 );

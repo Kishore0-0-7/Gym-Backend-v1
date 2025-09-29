@@ -168,11 +168,11 @@ const registerMemberShip = async (req, res) => {
 
     const insertRevenueQuery = `
       INSERT INTO revenue_analysis (amount, date_payes)
-      VALUES ($1, CURRENT_DATE)
+      VALUES ($1, $2)
       RETURNING *;
     `;
 
-    await client.query(insertRevenueQuery, [amount]);
+    await client.query(insertRevenueQuery, [amount, startDate]);
 
     await client.query("COMMIT");
 
@@ -191,17 +191,14 @@ const registerMemberShip = async (req, res) => {
 
 // Progress Page
 const registerProgress = async (req, res) => {
-  const { date, vFat, userId, bmr, candidateName, bmi, weight, bAge, fat } =
-    req.body;
+  const { date, vFat, userId, bmr, bmi, weight, bAge, fat } = req.body;
 
   try {
     const lowerUserId = userId;
-    const lowerCandidateName = candidateName;
 
     const query = `
       INSERT INTO progress_tracking (
         user_id,
-        candidate_name,
         entry_date,
         weight_kg,
         fat,
@@ -210,21 +207,11 @@ const registerProgress = async (req, res) => {
         bmi,
         b_age
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
       RETURNING *;
     `;
 
-    const values = [
-      lowerUserId,
-      lowerCandidateName,
-      date,
-      weight,
-      fat,
-      vFat,
-      bmr,
-      bmi,
-      bAge,
-    ];
+    const values = [lowerUserId, date, weight, fat, vFat, bmr, bmi, bAge];
 
     const { rows } = await db.query(query, values);
 
@@ -295,7 +282,7 @@ const returnToken = async (req, res) => {
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn });
     const maxAge = isRemember ? 24 * 60 * 60 * 1000 : 60 * 60 * 1000;
 
-    const isProduction = true; // change to true when deploying
+    const isProduction = false; // change to true when deploying
 
     res.cookie("token", token, {
       httpOnly: true,
@@ -314,10 +301,34 @@ const returnToken = async (req, res) => {
   }
 };
 
+const addMembershipAmount = async (req, res) => {
+  const { candidateType, instructor, duration, amount } = req.body;
+
+  if (!candidateType || !instructor || !duration || !amount) {
+    return res.status(400).json({ message: "All fields are required" });
+  }
+
+  try {
+    const sql = `
+      INSERT INTO membership_settings 
+        (candidate_type, instructor, duration, amount) 
+      VALUES ($1, $2, $3, $4)
+    `;
+
+    await db.query(sql, [candidateType, instructor, duration, amount]);
+
+    return res.status(201).json({ message: "Membership added successfully" });
+  } catch (error) {
+    console.error("Error adding membership:", error);
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 module.exports = {
   registerCandidate,
   registerProgress,
   registerMemberShip,
   registerLogin,
   returnToken,
+  addMembershipAmount,
 };

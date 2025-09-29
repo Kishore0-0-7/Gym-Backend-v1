@@ -8,6 +8,7 @@ const {
   registerMemberShip,
   registerLogin,
   returnToken,
+  addMembershipAmount,
 } = require("../controller/adminPost.controller");
 
 const {
@@ -28,6 +29,8 @@ const {
   getCandidateLists,
   getMonthRevenueGraph,
   getPieChart,
+  getPaymentGraph,
+  getMembershipSettings,
 } = require("../controller/adminGet.controller");
 
 const {
@@ -73,11 +76,13 @@ router.post(
   validateProgress,
   registerProgress
 );
-router.post("/get-candidate-info", getCandidateInformation);
-router.post("/add-login", registerLogin);
+router.post("/get-candidate-info", authMiddleware, getCandidateInformation);
+router.post("/add-login", authMiddleware, registerLogin);
 router.post("/login", validateLogin, returnToken);
 router.post("/logout", handleLogout);
 router.post("/get-dashboard", authMiddleware, getDashboard);
+router.post("/settings/gym", authMiddleware, addMembershipAmount);
+router.post("/settings/cardio", authMiddleware, addMembershipAmount);
 
 // Routes Get
 router.get("/get-old-membership/:id", authMiddleware, getMembershipDetails);
@@ -93,9 +98,10 @@ router.get("/get-report", authMiddleware, getReport);
 router.get("/revenue-year-graph", authMiddleware, getRevenueGraph);
 router.get("/revenue-month-graph", authMiddleware, getMonthRevenueGraph);
 router.get("/get-pie-chart", authMiddleware, getPieChart);
-// router.get("/get-memberhip-plans", authMiddleware, getMembershipPlans);
+router.get("/get-payment-chart", getPaymentGraph);
 router.get("/get-old-premium", authMiddleware, getPreviousMemberships);
 router.get("/get-previous-premium", authMiddleware, getPreviousPremium);
+router.get("/membership-settings", authMiddleware, getMembershipSettings);
 router.get("/auth-me", checkAuth);
 
 // Router put
